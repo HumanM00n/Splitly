@@ -1,0 +1,55 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Group {
+  id        String    @id @default(cuid())
+  name      String
+  createdAt DateTime  @default(now())
+  members   Member[]
+  expenses  Expense[]
+}
+
+model Member {
+  id             String               @id @default(cuid())
+  name           String
+  createdAt      DateTime             @default(now())
+  groupId        String
+  group          Group                @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  paidExpenses   Expense[]
+  participations ExpenseParticipant[]
+
+  @@unique([groupId, name])
+}
+
+model Expense {
+  id           String               @id @default(cuid())
+  label        String
+  amountCents  Int
+  date         DateTime             @db.Date
+  createdAt    DateTime             @default(now())
+  groupId      String
+  group        Group                @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  payerId      String
+  // NoAction : un membre qui a payé une dépense ne peut pas être supprimé
+  payer        Member               @relation(fields: [payerId], references: [id], onDelete: NoAction)
+  participants ExpenseParticipant[]
+
+  @@index([groupId, date])
+}
+
+model ExpenseParticipant {
+  expenseId  String
+  expense    Expense @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  memberId   String
+  // NoAction : un membre qui participe à une dépense ne peut pas être supprimé
+  member     Member  @relation(fields: [memberId], references: [id], onDelete: NoAction)
+  shareCents Int
+
+  @@id([expenseId, memberId])
+}
