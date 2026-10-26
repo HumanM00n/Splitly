@@ -1,0 +1,1 @@
+CREATE DATABASE splitly_test;
