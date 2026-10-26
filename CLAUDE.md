@@ -1,4 +1,4 @@
-# Quits — App de dépenses partagées
+# Splitly — App de dépenses partagées
 
 ## Contexte
 

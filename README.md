@@ -1,4 +1,4 @@
-# Quits
+# Splitly
 
 Petite app de partage de dépenses entre amis (type Tricount simplifié), qui sert de support pour apprendre la CI/CD.
 

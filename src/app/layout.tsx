@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Quits",
+  title: "Splitly",
   description: "Partagez vos dépenses entre amis et soyez quittes.",
 };
 
@@ -25,7 +25,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <header className="border-b border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
           <div className="mx-auto max-w-3xl px-4 py-4">
             <Link href="/" className="text-xl font-bold tracking-tight">
-              Quits
+              Splitly
             </Link>
           </div>
         </header>
