@@ -1,36 +1,88 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Quits
 
-## Getting Started
+Petite app de partage de dépenses entre amis (type Tricount simplifié), qui sert de support pour apprendre la CI/CD.
 
-First, run the development server:
+- Groupes et membres, dépenses réparties équitablement (montants en centimes)
+- Soldes de chaque membre et liste minimale des remboursements (« Chloé doit 45,00 € à Alice »)
+
+Stack : Next.js 16 (App Router, Server Actions) · TypeScript · Prisma 7 + PostgreSQL · Zod · Tailwind CSS · Vitest · Playwright.
+
+## Prérequis
+
+- Node.js 24
+- Docker (pour PostgreSQL), ou un serveur PostgreSQL existant
+
+## Lancer le projet en local
 
 ```bash
+# 1. Dépendances (génère aussi le client Prisma)
+npm install
+
+# 2. PostgreSQL : crée les bases splitly (dev) et splitly_test (tests)
+docker compose up -d
+
+# 3. Variables d'environnement
+cp .env.example .env
+cp .env.test.example .env.test
+
+# 4. Schéma et données de démo
+npm run db:migrate
+npm run db:seed
+
+# 5. Serveur de dev sur http://localhost:3000
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Si la base existait avant l'ajout de `docker/init-test.sql`, la base `splitly_test` n'est pas créée : lancer `docker compose down -v` puis `docker compose up -d` (cela efface les données locales).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Tests
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Commande                   | Contenu                                                                                   |
+| -------------------------- | ----------------------------------------------------------------------------------------- |
+| `npm test`                 | Tests unitaires du domaine (`src/lib/domain/`)                                            |
+| `npm run test:coverage`    | Idem, avec couverture ; échoue sous 100 %                                                 |
+| `npm run test:integration` | Services + vraie base Postgres (`DATABASE_URL` de `.env.test`)                            |
+| `npm run test:e2e`         | Parcours complet dans Chromium (build + `next start` sur le port 3100, même base de test) |
 
-## Learn More
+Avant le premier `test:e2e` : `npx playwright install chromium`.
 
-To learn more about Next.js, take a look at the following resources:
+Les tests d'intégration et E2E **vident la base** : ils refusent de tourner si le nom de la base ne contient pas `test`. Ils appliquent eux-mêmes les migrations. En CI, il suffit de définir `DATABASE_URL` : une variable déjà définie n'est jamais écrasée par `.env.test`.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Scripts
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Tous non interactifs, pour la CI :
 
-## Deploy on Vercel
+| Script                                 | Rôle                                               |
+| -------------------------------------- | -------------------------------------------------- |
+| `dev`, `build`, `start`                | Next.js                                            |
+| `lint`, `typecheck`, `format:check`    | ESLint, `next typegen && tsc --noEmit`, Prettier   |
+| `format`                               | Formate tout le projet                             |
+| `test`, `test:integration`, `test:e2e` | Voir ci-dessus                                     |
+| `db:migrate`                           | `prisma migrate deploy`                            |
+| `db:migrate:dev`                       | Crée une migration après modification du schéma    |
+| `db:seed`                              | Crée le groupe de démo (idempotent)                |
+| `db:generate`                          | Régénère le client Prisma (lancé au `postinstall`) |
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Architecture
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```
+src/
+  app/                 Pages (Server Components) et Server Actions (actions.ts)
+  components/          Formulaires (Client Components) et petits composants d'UI
+  lib/
+    domain/            Logique métier pure : parts, soldes, remboursements, montants
+    validation.ts      Schémas Zod
+    services/          Validation Zod → domaine → DB (appelés par les Server Actions)
+    db/                Accès Prisma
+  generated/prisma/    Client Prisma généré (non versionné)
+prisma/                Schéma, migrations, seed
+tests/
+  integration/         Vitest + Postgres
+  e2e/                 Playwright
+```
+
+Règles notables :
+
+- Les montants sont des entiers en centimes. Les centimes restants d'une division vont aux premiers participants dans l'ordre d'ajout au groupe (10,00 € / 3 → 3,34 / 3,33 / 3,33).
+- Un membre qui a payé ou participé à une dépense ne peut pas être retiré.
+- Remboursements : algorithme glouton, du plus gros débiteur vers le plus gros créancier.
